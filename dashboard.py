@@ -221,19 +221,14 @@ with col10:
 
 st.subheader("Taille de la base de données")
 
-taille_memoire = data.memory_usage(deep=True).sum() / (1024 ** 2)
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 
 with col1:
     st.metric("Nombre de lignes", f"{data.shape[0]:,}")
 
 with col2:
     st.metric("Nombre de colonnes", f"{data.shape[1]}")
-
-with col3:
-    st.metric("Mémoire occupée", f"{taille_memoire:.2f} Mo")
-
 
 # ==================================================
 # 2. CHIFFRE D'AFFAIRES PAR VILLE
