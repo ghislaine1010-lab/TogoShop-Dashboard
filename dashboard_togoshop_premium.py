@@ -294,6 +294,123 @@ st.markdown(
         .hero { padding: 1.35rem; }
         .kpi-card { min-height: 120px; padding: 0.9rem; }
     }
+
+    /* =========================================
+   THEME COMMERCIAL ROUGE ET BLANC
+   ========================================= */
+
+:root {
+    --navy: #7F1D1D;
+    --navy-2: #991B1B;
+    --teal: #B91C1C;
+    --teal-light: #FEE2E2;
+    --sky: #D94848;
+    --ink: #292524;
+    --muted: #78716C;
+    --line: #E7DCDC;
+    --canvas: #F5F5F5;
+    --card: #FFFFFF;
+}
+
+/* Fond principal */
+
+.stApp,
+[data-testid="stAppViewContainer"] > .main {
+    background: #F5F5F5;
+    color: #292524;
+}
+
+/* Bandeau principal */
+
+.hero {
+    background: linear-gradient(
+        110deg,
+        #761515 0%,
+        #B91C1C 100%
+    );
+    border-radius: 8px;
+    padding: 1.5rem 1.7rem;
+    box-shadow: none;
+}
+
+.hero:after {
+    display: none;
+}
+
+.hero-kicker {
+    color: #FEE2E2;
+}
+
+.hero-chip {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #FFFFFF;
+}
+
+/* Bandeaux rouges des sections */
+
+.section-heading {
+    display: block;
+    background: #8F1717;
+    color: #FFFFFF;
+    padding: 0.65rem 0.9rem;
+    border-radius: 5px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    margin: 1.3rem 0 0.8rem 0;
+}
+
+.section-marker {
+    display: none;
+}
+
+.section-caption {
+    color: #737373;
+    margin-top: -0.25rem;
+    margin-bottom: 1rem;
+}
+
+/* Cartes des indicateurs */
+
+.kpi-card {
+    background: #FFFFFF;
+    border: 1px solid #E7DCDC;
+    border-radius: 10px;
+    box-shadow: 0 3px 12px rgba(60, 20, 20, 0.06);
+    min-height: 122px;
+}
+
+/* Graphiques */
+
+div[data-testid="stPlotlyChart"] {
+    background: #FFFFFF;
+    border: 1px solid #E7DCDC;
+    border-radius: 9px;
+    box-shadow: 0 3px 12px rgba(60, 20, 20, 0.04);
+}
+
+/* Barre latérale assortie */
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(
+        180deg,
+        #651616 0%,
+        #8F1717 100%
+    );
+}
+
+.sidebar-brand-mark {
+    background: #FEE2E2;
+    color: #8F1717;
+}
+
+/* Tableaux */
+
+div[data-testid="stDataFrame"] {
+    background: #FFFFFF;
+    border: 1px solid #E7DCDC;
+    border-radius: 9px;
+}
     </style>
     """,
     unsafe_allow_html=True,
@@ -630,6 +747,99 @@ with tab_overview:
         else:
             st.info("La colonne `mois` n'existe pas dans cette base. Le graphique mensuel ne peut pas être affiché.")
 
+
+    # ============================================================
+    # ANALYSE DU VOLUME VENDU ET DU PRIX UNITAIRE
+    # ============================================================
+    section_heading(
+        "Volume vendu et prix unitaire",
+        "Comparez les quantités vendues, les prix unitaires moyens et le chiffre d'affaires par catégorie."
+    )
+
+    analyse_source = filtered.copy()
+    analyse_source["quantite"] = pd.to_numeric(analyse_source["quantite"], errors="coerce").fillna(0)
+    analyse_source["prix_unitaire_fcfa"] = pd.to_numeric(analyse_source["prix_unitaire_fcfa"], errors="coerce")
+    analyse_source["montant_total_fcfa"] = pd.to_numeric(analyse_source["montant_total_fcfa"], errors="coerce").fillna(0)
+
+    performance_categorie = analyse_source.groupby("categorie", as_index=False).agg(
+        quantite_vendue=("quantite", "sum"),
+        chiffre_affaires=("montant_total_fcfa", "sum"),
+        prix_unitaire_moyen=("prix_unitaire_fcfa", "mean"),
+        commandes=("id_commande", "nunique"),
+    )
+    ca_total_categories = performance_categorie["chiffre_affaires"].sum()
+    if ca_total_categories != 0:
+        performance_categorie["part_ca_pct"] = (
+            performance_categorie["chiffre_affaires"] / ca_total_categories * 100
+        )
+    else:
+        performance_categorie["part_ca_pct"] = 0.0
+
+    gauche, droite = st.columns(2, gap="large")
+    with gauche:
+        st.markdown("#### Quantité vendue par catégorie")
+        quantites = performance_categorie.sort_values("quantite_vendue", ascending=True)
+        fig = px.bar(
+            quantites, x="quantite_vendue", y="categorie", orientation="h",
+            text="quantite_vendue", color_discrete_sequence=["#B91C1C"],
+            labels={"quantite_vendue": "Quantité vendue", "categorie": "Catégorie"},
+        )
+        fig.update_traces(texttemplate="%{x:,.0f}", textposition="outside", cliponaxis=False)
+        fig.update_layout(yaxis_title="", showlegend=False)
+        st.plotly_chart(style_figure(fig, height=350), width="stretch", config={"displayModeBar": False})
+
+    with droite:
+        st.markdown("#### Prix unitaire moyen par catégorie")
+        prix = performance_categorie.sort_values("prix_unitaire_moyen", ascending=True)
+        fig = px.bar(
+            prix, x="prix_unitaire_moyen", y="categorie", orientation="h",
+            text="prix_unitaire_moyen", color_discrete_sequence=["#D97706"],
+            labels={"prix_unitaire_moyen": "Prix unitaire moyen (FCFA)", "categorie": "Catégorie"},
+        )
+        fig.update_traces(texttemplate="%{x:,.0f}", textposition="outside", cliponaxis=False)
+        fig.update_xaxes(tickformat=",.0f")
+        fig.update_layout(yaxis_title="", showlegend=False)
+        st.plotly_chart(style_figure(fig, height=350), width="stretch", config={"displayModeBar": False})
+
+    st.markdown("#### Tableau comparatif des catégories")
+    tableau_performance = performance_categorie.sort_values(
+        "chiffre_affaires", ascending=False
+    ).rename(columns={
+        "categorie": "Catégorie",
+        "quantite_vendue": "Quantité vendue",
+        "chiffre_affaires": "Chiffre d'affaires (FCFA)",
+        "prix_unitaire_moyen": "Prix unitaire moyen (FCFA)",
+        "commandes": "Commandes distinctes",
+        "part_ca_pct": "Part du CA (%)",
+    })
+    st.dataframe(
+        tableau_performance.style.format({
+            "Quantité vendue": "{:,.0f}",
+            "Chiffre d'affaires (FCFA)": "{:,.0f}",
+            "Prix unitaire moyen (FCFA)": "{:,.0f}",
+            "Commandes distinctes": "{:,.0f}",
+            "Part du CA (%)": "{:.1f} %",
+        }),
+        width="stretch",
+        hide_index=True,
+    )
+
+    if not performance_categorie.empty:
+        categorie_ca = performance_categorie.loc[performance_categorie["chiffre_affaires"].idxmax()]
+        categorie_volume = performance_categorie.loc[performance_categorie["quantite_vendue"].idxmax()]
+        if categorie_ca["categorie"] == categorie_volume["categorie"]:
+            st.info(
+                f"**À retenir :** {categorie_ca['categorie']} arrive en tête du chiffre d'affaires "
+                f"et du volume vendu. Comparez aussi son prix unitaire moyen pour mieux comprendre sa performance."
+            )
+        else:
+            st.info(
+                f"**À retenir :** {categorie_ca['categorie']} génère le chiffre d'affaires le plus élevé "
+                f"({fmt_fcfa(categorie_ca['chiffre_affaires'])}), tandis que {categorie_volume['categorie']} "
+                f"enregistre la plus grande quantité vendue ({fmt_number(categorie_volume['quantite_vendue'])} articles). "
+                "Le prix unitaire moyen aide à comparer ces performances, mais ces indicateurs seuls ne prouvent pas une causalité."
+            )
+
 with tab_cities:
     section_heading("Villes & catégories", "Identifiez les zones les plus performantes et les catégories qui y sont commandées.")
     city_summary = filtered.groupby("ville").agg(
@@ -664,7 +874,7 @@ with tab_cities:
     fig.update_xaxes(title="Ville", tickangle=-25)
     fig.update_yaxes(title="Commandes")
     st.plotly_chart(style_figure(fig, height=440), width="stretch", config={"displayModeBar": False})
-    st.caption("Le graphique compte les commandes distinctes par ville et catégorie. Il ne représente pas la quantité d'articles, car aucune colonne de quantité n'a été identifiée.")
+    st.caption("Le graphique compte les commandes distinctes par ville et catégorie. Les quantités réelles vendues sont analysées dans la section Volume vendu et prix unitaire de la vue générale.")
 
 with tab_clients:
     section_heading("Profil des clients", "Répartition des clients uniques selon leur statut et les caractéristiques disponibles.")
@@ -740,15 +950,12 @@ with tab_channels:
 
 with tab_data:
     section_heading("Exploration du dataset", "Vérifiez la structure de la base et les valeurs manquantes.")
-    memory_mb = data.memory_usage(deep=True).sum() / (1024 ** 2)
-    row1, row2, row3, row4 = st.columns(4, gap="medium")
+    row1, row2, row3 = st.columns(3, gap="medium")
     with row1:
         kpi_card("Lignes", fmt_number(data.shape[0]), "📄", "#4A8FE7", "#E4EFFF", "Enregistrements")
     with row2:
         kpi_card("Colonnes", fmt_number(data.shape[1]), "📊", "#08A88A", "#DDF8F0", "Variables disponibles")
     with row3:
-        kpi_card("Taille mémoire", f"{memory_mb:.2f} Mo", "💾", "#8B5CF6", "#F0E8FF", "Estimation en mémoire")
-    with row4:
         kpi_card("Clients distincts", fmt_number(data["id_client"].nunique()), "👥", "#F59E0B", "#FFF1D6", "Base complète")
 
     st.markdown("#### Aperçu des données filtrées")
